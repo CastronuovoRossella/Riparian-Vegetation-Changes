@@ -99,7 +99,6 @@ final_table_path <- "E:/DELL/Riparian_Vegetation_Change/Layers/3_MK_Senn_Tests/S
 write.csv(final_table, file = final_table_path, row.names = FALSE)
 cat("Final table saved at:", final_table_path, "\n")
 
-
 # Load required packages
 library(ggplot2)
 library(readxl)
@@ -107,33 +106,42 @@ library(tidyr)
 library(dplyr)
 
 # Import data
-Slope <- read_excel("E:/DELL/Riparian_Vegetation_Change/Layers/3_MK_Senn_Tests/STRAHLER_TAU_AREA_OPERATE.xlsx")
+Hydro <- read_excel("E:/DELL/Riparian_Vegetation_Change/Layers/3_MK_Senn_Tests/STRAHLER_TAU_AREA_OPERATE.xlsx")
 
 # Reshape data: Convert wide format into long format
-Slope_long <- Slope %>%
+hydro_long <- Hydro %>%
   pivot_longer(cols = c(POSITIVE_TAU_AREA_ha, NEGATIVE_TAU_AREA_ha), 
                names_to = "Trend", values_to = "Area") %>%
   mutate(Area = ifelse(Trend == "NEGATIVE_TAU_AREA_ha", -Area, Area)) %>%
   drop_na(Area)  # Remove any NA values in the Area column
 
 # Recode column "Trend" for better labels
-Slope_long$Trend <- recode(Slope_long$Trend, 
+hydro_long$Trend <- recode(hydro_long$Trend, 
                            "POSITIVE_TAU_AREA_ha" = "Positive MK Trend", 
                            "NEGATIVE_TAU_AREA_ha" = "Negative MK Trend")
 
+# Define Y-axis limits rounded to the nearest multiple of 300
+y_min <- floor(min(hydro_long$Area) / 300) * 300
+y_max <- ceiling(max(hydro_long$Area) / 300) * 300
+
+# Set label offset to bring them closer to bars
+label_offset <- 150  # Reduce offset from 300 to 150 for better positioning
+
 # Plot
-p <- ggplot(Slope_long, aes(x = STRAHLER_CLASS, y = Area, fill = Trend)) +
-  geom_bar(stat = "identity", position = "identity", colour = "black") +
-  scale_fill_manual(values = c("Positive MK Trend" = "lightgrey", "Negative MK Trend" = "black")) +
+p <- ggplot(hydro_long, aes(x = STRAHLER_CLASS, y = Area, fill = Trend)) +
+  geom_bar(stat = "identity", position = "identity", aes(colour = Trend), size = 0.5) +  # Add black outline
+  scale_fill_manual(values = c("Positive MK Trend" = "white", "Negative MK Trend" = "black")) +  # White for positive bars
+  scale_color_manual(values = c("Positive MK Trend" = "black", "Negative MK Trend" = "black")) +  # Black outline for both
   labs(
     x = "Strahler Order Classes",
     y = "Surface Area (ha)"
   ) +
-  geom_hline(yintercept = 0, colour = "black", linewidth = 0.6) + 
-  geom_text(aes(label = round(abs(Area), 2), y = Area + ifelse(Area > 0, 300, -300)), 
-            colour = "black", size = 4) + 
+  geom_hline(yintercept = 0, colour = "black", linewidth = 0.6) +  # Reference line at y = 0
+  geom_text(aes(label = round(abs(Area), 2), y = Area + ifelse(Area > 0, label_offset, -label_offset)), 
+            colour = "black", size = 3) +  # **Smaller text & closer labels**
+  scale_y_continuous(breaks = seq(y_min, y_max, by = 300)) +  # Set Y-axis breaks every 300 units
   theme(
-    axis.text.x = element_text(angle = 0, hjust = 0.5),
+    axis.text.x = element_text(angle = 0, hjust = 0.5),  # Center X-axis text
     axis.line.x = element_blank(),
     axis.ticks.x = element_blank(),
     axis.line.y = element_line(colour = "black", linewidth = 0.6),
@@ -147,3 +155,21 @@ p <- ggplot(Slope_long, aes(x = STRAHLER_CLASS, y = Area, fill = Trend)) +
 
 # Show the plot
 print(p)
+
+# Path to save the image
+desktop_path <- "C:/Users/rosse/OneDrive/Desktop/"
+
+# Define image dimensions and quality
+width_px <- 12000   
+height_px <- 11000  
+dpi <- 1200         
+
+# Save the PNG directly to the Desktop
+png(paste0(desktop_path, "hydro_Plot_HighQuality.png"), 
+    width = width_px, height = height_px, res = dpi, type = "cairo-png")
+
+# Print the plot
+print(p)
+
+# Close the graphics device to properly save the file
+dev.off()
